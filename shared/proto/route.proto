@@ -1,0 +1,19 @@
+//route.proto
+
+syntax = "proto3";
+
+package gridflow;
+
+option go_package = "gridflow/shared/proto/gen";
+
+message LatLng {
+  double latitude = 1;
+  double longitude = 2;
+}
+
+message RouteCommand {
+  string vehicle_id = 1;
+  repeated LatLng waypoints = 2;
+  int64 issued_at = 3;
+  string reason = 4;
+}

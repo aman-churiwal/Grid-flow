@@ -1,0 +1,26 @@
+//ingestion.proto
+
+syntax = "proto3";
+
+package gridflow;
+
+option go_package = "gridflow/shared/proto/gen";
+
+import "vehicle.proto";
+
+enum TelemetryStatus {
+  TELEMETRY_STATUS_UNSPECIFIED = 0;
+  OK = 1;
+  INVALID = 2;
+  RATE_LIMITED = 3;
+}
+
+message TelemetryAck {
+  string vehicle_id = 1;
+  int64 received_at = 2;
+  TelemetryStatus status = 3;
+}
+
+service IngestionService {
+  rpc StreamTelemetry(stream VehiclePing) returns (stream TelemetryAck);
+}

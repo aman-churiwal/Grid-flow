@@ -1,0 +1,31 @@
+//anomaly.proto
+
+syntax = "proto3";
+
+package gridflow;
+
+option go_package = "gridflow/shared/proto/gen";
+
+enum Anomaly {
+  ANOMALY_UNSPECIFIED = 0;
+  DELAY = 1;
+  CONGESTION = 2;
+  BREAKDOWN = 3;
+  DEVIATION = 4;
+}
+
+enum Severity {
+  SEVERITY_UNSPECIFIED = 0;
+  LOW = 1;
+  MEDIUM = 2;
+  HIGH = 3;
+}
+
+message AnomalyEvent {
+  string vehicle_id = 1;
+  Anomaly anomaly_type = 2;
+  Severity severity = 3;
+  int64 detected_at = 4;
+  float predicted_delay_minutes = 5;
+  float confidence_score = 6;
+}

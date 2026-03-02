@@ -1,0 +1,24 @@
+//vehicle.proto
+
+syntax = "proto3";
+
+package gridflow;
+
+option go_package = "gridflow/shared/proto/gen";
+
+enum Status {
+  STATUS_UNSPECIFIED = 0;
+  ACTIVE = 1;
+  IDLE = 2;
+  OFFLINE = 3;
+}
+
+message VehiclePing {
+  string vehicle_id = 1;
+  double lat = 2;
+  double lng = 3;
+  float speed = 4;
+  float heading = 5;
+  int64 timestamp = 6;
+  Status status = 7;
+}

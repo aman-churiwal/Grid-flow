@@ -1,0 +1,23 @@
+//optimizer.proto
+
+syntax = "proto3";
+
+package gridflow;
+
+option go_package = "gridflow/shared/proto/gen";
+
+import "route.proto";
+
+message RerouteRequest {
+  string vehicle_id = 1;
+  string reason = 2;
+}
+
+message RerouteResponse {
+  RouteCommand route_command = 1;
+  bool success = 2;
+}
+
+service OptimizerService {
+  rpc RequestReroute(RerouteRequest) returns (RerouteResponse);
+}
