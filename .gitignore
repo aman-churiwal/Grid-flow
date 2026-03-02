@@ -1,3 +1,12 @@
 .env
 
 .idea
+
+./shared/proto/gen/
+/shared/proto/gen/ingestion.pb.go
+/shared/proto/gen/anomaly.pb.go
+/shared/proto/gen/ingestion_grpc.pb.go
+/shared/proto/gen/optimizer.pb.go
+/shared/proto/gen/optimizer_grpc.pb.go
+/shared/proto/gen/route.pb.go
+/shared/proto/gen/vehicle.pb.go

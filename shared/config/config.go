@@ -8,6 +8,7 @@ import (
 )
 
 type Config struct {
+	AppEnv         string   `mapstructure:"APP_ENV"`
 	ServiceName    string   `mapstructure:"SERVICE_NAME"`
 	Port           int      `mapstructure:"PORT"`
 	KafkaBrokers   []string `mapstructure:"KAFKA_BROKERS"`
@@ -39,6 +40,9 @@ func Load() (c Config, err error) {
 		return c, err
 	}
 
+	if c.AppEnv == "" {
+		return c, fmt.Errorf("APP_ENV is required")
+	}
 	if c.ServiceName == "" {
 		return c, fmt.Errorf("SERVICE_NAME is required")
 	}
