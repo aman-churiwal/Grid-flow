@@ -36,6 +36,12 @@ func main() {
 		return
 	}
 
+	if err := repository.RunMigrations(c.PostgresDSN, "migrations"); err != nil {
+		appLogger.Error(context.Background()).Err(err).Msg("Failed to run migrations")
+		return
+	}
+	appLogger.Info(context.Background()).Msg("Migrations applied successfully")
+
 	router := newRouter(appLogger)
 
 	addr := fmt.Sprintf(":%d", c.Port)
