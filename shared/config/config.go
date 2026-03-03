@@ -17,6 +17,8 @@ type Config struct {
 	EtcdEndpoints  []string `mapstructure:"ETCD_ENDPOINTS"`
 	JaegerEndpoint string   `mapstructure:"JAEGER_ENDPOINT"`
 	AIEndpoint     string   `mapstructure:"AI_ENDPOINT"`
+	JwtPrivateKey  string   `mapstructure:"JWT_PRIVATE_KEY"`
+	JwtPublicKey   string   `mapstructure:"JWT_PUBLIC_KEY"`
 }
 
 func Load() (c Config, err error) {
@@ -66,6 +68,12 @@ func Load() (c Config, err error) {
 	}
 	if c.AIEndpoint == "" {
 		return c, fmt.Errorf("AI_ENDPOINT is required")
+	}
+	if c.JwtPrivateKey == "" {
+		return c, fmt.Errorf("JWT_PRIVATE_KEY is required")
+	}
+	if c.JwtPublicKey == "" {
+		return c, fmt.Errorf("JWT_PUBLIC_KEY is required")
 	}
 
 	return c, nil

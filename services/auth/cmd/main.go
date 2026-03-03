@@ -19,7 +19,7 @@ import (
 func main() {
 	c, err := config.Load()
 	if err != nil {
-		fmt.Printf("Unable to load config: %v", err)
+		_, _ = fmt.Fprintf(os.Stderr, "Unable to load config: %v", err)
 		return
 	}
 
@@ -42,7 +42,11 @@ func main() {
 	}
 	appLogger.Info(context.Background()).Msg("Migrations applied successfully")
 
-	router := newRouter(appLogger)
+	router, err := newRouter(appLogger, db.GetDB(), c)
+	if err != nil {
+		appLogger.Error(context.Background()).Err(err).Msg("Failed to initialize router")
+		return
+	}
 
 	addr := fmt.Sprintf(":%d", c.Port)
 	srv := &http.Server{

@@ -17,6 +17,10 @@ func NewPostgres(dsn string) (*Postgres, error) {
 	return &Postgres{db: db}, nil
 }
 
+func (p *Postgres) GetDB() *sql.DB {
+	return p.db
+}
+
 func (p *Postgres) Ping() error {
 	return p.db.Ping()
 }
