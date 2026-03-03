@@ -10,12 +10,19 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
-var ErrEmailAlreadyExists = errors.New("email already exists")
-var ErrInvalidCredentials = errors.New("invalid email or password")
+var (
+	ErrEmailAlreadyExists  = errors.New("email already exists")
+	ErrInvalidCredentials  = errors.New("invalid email or password")
+	ErrRefreshTokenInvalid = errors.New("refresh token is invalid")
+	ErrRefreshTokenExpired = errors.New("refresh token has expired")
+)
+
+const refreshTokenExpiry = 7 * 24 * time.Hour
 
 type IAuthService interface {
 	Register(ctx context.Context, req *model.RegisterRequest) (*model.RegisterResponse, error)
 	Login(ctx context.Context, req *model.LoginRequest) (*model.LoginResponse, error)
+	Refresh(ctx context.Context, req *model.RefreshRequest) (*model.RefreshResponse, error)
 }
 
 type AuthService struct {
@@ -83,12 +90,60 @@ func (s *AuthService) Login(ctx context.Context, req *model.LoginRequest) (*mode
 
 	hashedRefreshToken := s.tokenService.HashToken(rawRefreshToken)
 
-	if err := s.tokenRepository.StoreRefreshToken(ctx, user.ID, hashedRefreshToken, time.Now().Add(7*24*time.Hour)); err != nil {
+	if err := s.tokenRepository.StoreRefreshToken(ctx, user.ID, hashedRefreshToken, time.Now().Add(refreshTokenExpiry)); err != nil {
 		return nil, err
 	}
 
 	return &model.LoginResponse{
 		AccessToken:  accessToken,
 		RefreshToken: rawRefreshToken,
+	}, nil
+}
+
+func (s *AuthService) Refresh(ctx context.Context, req *model.RefreshRequest) (*model.RefreshResponse, error) {
+	hashedToken := s.tokenService.HashToken(req.RefreshToken)
+	refreshToken, err := s.tokenRepository.GetRefreshToken(ctx, hashedToken)
+	if err != nil {
+		if errors.Is(err, repository.ErrRefreshTokenNotFound) {
+			return nil, ErrRefreshTokenInvalid
+		}
+		return nil, err
+	}
+
+	if refreshToken.Revoked {
+		return nil, ErrRefreshTokenInvalid
+	}
+
+	if time.Now().After(refreshToken.ExpiresAt) {
+		return nil, ErrRefreshTokenExpired
+	}
+
+	if err := s.tokenRepository.RevokeRefreshToken(ctx, refreshToken.ID); err != nil {
+		return nil, err
+	}
+
+	user, err := s.authRepository.GetUserByID(ctx, refreshToken.UserID)
+	if err != nil {
+		return nil, err
+	}
+
+	accessToken, err := s.tokenService.GenerateAccessToken(user.ID, user.Role)
+	if err != nil {
+		return nil, err
+	}
+
+	newRefreshToken, err := s.tokenService.GenerateRefreshToken()
+	if err != nil {
+		return nil, err
+	}
+
+	hashedRefreshToken := s.tokenService.HashToken(newRefreshToken)
+	if err := s.tokenRepository.StoreRefreshToken(ctx, user.ID, hashedRefreshToken, time.Now().Add(refreshTokenExpiry)); err != nil {
+		return nil, err
+	}
+
+	return &model.RefreshResponse{
+		AccessToken:  accessToken,
+		RefreshToken: newRefreshToken,
 	}, nil
 }

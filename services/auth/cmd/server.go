@@ -30,5 +30,6 @@ func newRouter(appLogger *logger.Logger, db *sql.DB, cfg config.Config) (*gin.En
 
 	router.POST("/auth/register", authHandler.Register)
 	router.POST("/auth/login", authHandler.Login)
+	router.POST("/auth/refresh", authHandler.RefreshToken)
 	return router, nil
 }
