@@ -13,7 +13,8 @@ message LatLng {
 
 message RouteCommand {
   string vehicle_id = 1;
-  repeated LatLng waypoints = 2;
-  int64 issued_at = 3;
-  string reason = 4;
+  string message = 2;
+  repeated LatLng waypoints = 3;
+  int64 issued_at = 4;
+  string reason = 5;
 }
