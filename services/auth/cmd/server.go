@@ -1,11 +1,13 @@
 package main
 
 import (
+	"context"
 	"database/sql"
 
 	"github.com/aman-churiwal/gridflow-auth/internal/handler"
 	"github.com/aman-churiwal/gridflow-auth/internal/repository"
 	"github.com/aman-churiwal/gridflow-auth/internal/service"
+	"github.com/aman-churiwal/gridflow-shared/cache"
 	"github.com/aman-churiwal/gridflow-shared/config"
 	"github.com/aman-churiwal/gridflow-shared/logger"
 	"github.com/aman-churiwal/gridflow-shared/middleware"
@@ -22,6 +24,13 @@ func newRouter(appLogger *logger.Logger, db *sql.DB, cfg config.Config) (*gin.En
 	authService := service.NewAuthService(userRepo, tokenRepo, tokenService)
 	authHandler := handler.NewAuthHandler(authService)
 
+	redisClient := cache.NewRedisClient(cfg.RedisAddr)
+	if err := redisClient.Ping(context.Background()).Err(); err != nil {
+		appLogger.Error(context.Background()).Err(err).Msg("Unable to connect to Redis")
+		return nil, err
+	}
+	jwtCache := cache.NewJwtCache(redisClient)
+
 	router := gin.New()
 
 	router.Use(middleware.RequestLogger(appLogger))
@@ -33,6 +42,6 @@ func newRouter(appLogger *logger.Logger, db *sql.DB, cfg config.Config) (*gin.En
 	router.POST("/auth/refresh", authHandler.RefreshToken)
 
 	protected := router.Group("/")
-	protected.Use(middleware.JWTMiddleware(cfg.JwtPublicKey))
+	protected.Use(middleware.JWTMiddleware(cfg.JwtPublicKey, jwtCache))
 	return router, nil
 }
