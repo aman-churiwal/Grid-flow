@@ -1,4 +1,5 @@
-.env
+services/auth/.env
+services/ingestion/.env
 
 .idea
 

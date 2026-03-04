@@ -19,11 +19,19 @@ import (
 func main() {
 	c, err := config.Load()
 	if err != nil {
-		_, _ = fmt.Fprintf(os.Stderr, "Unable to load config: %v", err)
+		_, _ = fmt.Fprintf(os.Stderr, "Unable to load config: %v\n", err)
 		return
 	}
-
 	appLogger := logger.NewLogger(c.ServiceName, "INFO", c.AppEnv)
+
+	if c.JwtPrivateKey == "" {
+		appLogger.Error(context.Background()).Msg("JWT_PRIVATE_KEY is required")
+		return
+	}
+	if c.JwtPublicKey == "" {
+		appLogger.Error(context.Background()).Msg("JWT_PUBLIC_KEY is required")
+		return
+	}
 
 	db, err := repository.NewPostgres(c.PostgresDSN)
 	if err != nil {

@@ -22,7 +22,7 @@ type Config struct {
 }
 
 func Load() (c Config, err error) {
-	viper.AddConfigPath("../../")
+	viper.AddConfigPath("./")
 	viper.SetConfigName(".env")
 	viper.SetConfigType("env")
 
@@ -68,12 +68,6 @@ func Load() (c Config, err error) {
 	}
 	if c.AIEndpoint == "" {
 		return c, fmt.Errorf("AI_ENDPOINT is required")
-	}
-	if c.JwtPrivateKey == "" {
-		return c, fmt.Errorf("JWT_PRIVATE_KEY is required")
-	}
-	if c.JwtPublicKey == "" {
-		return c, fmt.Errorf("JWT_PUBLIC_KEY is required")
 	}
 
 	return c, nil
