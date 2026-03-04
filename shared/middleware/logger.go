@@ -1,7 +1,6 @@
 package middleware
 
 import (
-	"context"
 	"time"
 
 	"github.com/aman-churiwal/gridflow-shared/logger"
@@ -12,7 +11,7 @@ func RequestLogger(appLogger *logger.Logger) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		start := time.Now()
 		c.Next()
-		appLogger.Info(context.Background()).
+		appLogger.Info(c.Request.Context()).
 			Str("method", c.Request.Method).
 			Str("path", c.Request.URL.Path).
 			Int("status", c.Writer.Status()).
