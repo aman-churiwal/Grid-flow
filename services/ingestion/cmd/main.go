@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/aman-churiwal/gridflow-ingestion/internal/server"
+	"github.com/aman-churiwal/gridflow-ingestion/internal/session"
 	"github.com/aman-churiwal/gridflow-shared/config"
 	"github.com/aman-churiwal/gridflow-shared/logger"
 	"github.com/aman-churiwal/gridflow-shared/proto/gen"
@@ -36,8 +37,11 @@ func main() {
 		return
 	}
 
+	sessionStore := session.NewSessionStore()
+	ingestionServer := server.NewIngestionServer(sessionStore, appLogger)
+
 	grpcServer := grpc.NewServer()
-	gen.RegisterIngestionServiceServer(grpcServer, &server.IngestionServer{})
+	gen.RegisterIngestionServiceServer(grpcServer, ingestionServer)
 	healthServer := health.NewServer()
 	grpc_health_v1.RegisterHealthServer(grpcServer, healthServer)
 	healthServer.SetServingStatus("", grpc_health_v1.HealthCheckResponse_SERVING)
