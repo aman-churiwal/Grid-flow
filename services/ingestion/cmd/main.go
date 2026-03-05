@@ -46,8 +46,9 @@ func main() {
 	sessionStore := session.NewSessionStore()
 	ingestionServer := server.NewIngestionServer(sessionStore, appLogger)
 
-	newPublisher := publisher.NewNoopPublisher()
-	workerPool := worker.NewPool(c.WorkerPoolSize, ingestionServer.Pings(), appLogger, newPublisher)
+	//newPublisher := publisher.NewNoopPublisher()
+	kafkaPublisher := publisher.NewKafkaPublisher(c.KafkaBrokers, "vehicle.telemetry", appLogger)
+	workerPool := worker.NewPool(c.WorkerPoolSize, ingestionServer.Pings(), appLogger, kafkaPublisher)
 	ctx, cancel := context.WithCancel(context.Background())
 	workerPool.Start(ctx)
 
@@ -89,4 +90,8 @@ func main() {
 	}
 
 	workerPool.Wait()
+	if err := kafkaPublisher.Close(); err != nil {
+		appLogger.Error(context.Background()).Err(err).Msg("error closing kafka publisher")
+		return
+	}
 }
