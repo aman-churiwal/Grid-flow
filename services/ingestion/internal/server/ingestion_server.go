@@ -5,6 +5,7 @@ import (
 	"io"
 	"time"
 
+	"github.com/aman-churiwal/gridflow-ingestion/internal/ratelimit"
 	"github.com/aman-churiwal/gridflow-ingestion/internal/session"
 	"github.com/aman-churiwal/gridflow-shared/logger"
 	"github.com/aman-churiwal/gridflow-shared/proto/gen"
@@ -12,16 +13,18 @@ import (
 
 type IngestionServer struct {
 	gen.UnimplementedIngestionServiceServer
-	sessions *session.Store
-	logger   *logger.Logger
-	pings    chan *gen.VehiclePing
+	sessions    *session.Store
+	logger      *logger.Logger
+	pings       chan *gen.VehiclePing
+	rateLimiter ratelimit.IRateLimiter
 }
 
-func NewIngestionServer(sessions *session.Store, logger *logger.Logger) *IngestionServer {
+func NewIngestionServer(sessions *session.Store, logger *logger.Logger, rateLimiter ratelimit.IRateLimiter) *IngestionServer {
 	return &IngestionServer{
-		sessions: sessions,
-		logger:   logger,
-		pings:    make(chan *gen.VehiclePing, 100),
+		sessions:    sessions,
+		logger:      logger,
+		pings:       make(chan *gen.VehiclePing, 100),
+		rateLimiter: rateLimiter,
 	}
 }
 
@@ -44,6 +47,25 @@ func (s *IngestionServer) StreamTelemetry(stream gen.IngestionService_StreamTele
 		return nil
 	}
 
+	allowed, err := s.rateLimiter.Allow(stream.Context(), firstPing.VehicleId)
+	if err != nil {
+		s.logger.Warn(stream.Context()).Err(err).
+			Msg("rate limiter error, allowing ping")
+		allowed = true
+	}
+	if !allowed {
+		s.logger.Warn(stream.Context()).
+			Str("vehicle_id", firstPing.VehicleId).
+			Int64("timestamp", firstPing.Timestamp).
+			Msg("rate limit hit")
+
+		_ = stream.Send(&gen.TelemetryAck{
+			VehicleId:  firstPing.VehicleId,
+			ReceivedAt: time.Now().Unix(),
+			Status:     gen.TelemetryStatus_RATE_LIMITED,
+		})
+		return nil
+	}
 	vehicleID := firstPing.VehicleId
 
 	sess := &session.Session{
@@ -91,6 +113,27 @@ func (s *IngestionServer) StreamTelemetry(stream gen.IngestionService_StreamTele
 				VehicleId:  ping.VehicleId,
 				ReceivedAt: time.Now().Unix(),
 				Status:     gen.TelemetryStatus_INVALID,
+			})
+			continue
+		}
+
+		allowed, err := s.rateLimiter.Allow(stream.Context(), ping.VehicleId)
+		if err != nil {
+			s.logger.Warn(stream.Context()).Err(err).
+				Msg("rate limiter error, allowing ping")
+			allowed = true
+		}
+
+		if !allowed {
+			s.logger.Warn(stream.Context()).
+				Str("vehicle_id", ping.VehicleId).
+				Int64("timestamp", ping.Timestamp).
+				Msg("rate limit exceeded")
+
+			_ = stream.Send(&gen.TelemetryAck{
+				VehicleId:  ping.VehicleId,
+				ReceivedAt: time.Now().Unix(),
+				Status:     gen.TelemetryStatus_RATE_LIMITED,
 			})
 			continue
 		}

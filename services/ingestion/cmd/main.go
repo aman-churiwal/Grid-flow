@@ -11,9 +11,11 @@ import (
 	"time"
 
 	"github.com/aman-churiwal/gridflow-ingestion/internal/publisher"
+	"github.com/aman-churiwal/gridflow-ingestion/internal/ratelimit"
 	"github.com/aman-churiwal/gridflow-ingestion/internal/server"
 	"github.com/aman-churiwal/gridflow-ingestion/internal/session"
 	"github.com/aman-churiwal/gridflow-ingestion/internal/worker"
+	"github.com/aman-churiwal/gridflow-shared/cache"
 	"github.com/aman-churiwal/gridflow-shared/config"
 	"github.com/aman-churiwal/gridflow-shared/logger"
 	"github.com/aman-churiwal/gridflow-shared/proto/gen"
@@ -33,6 +35,12 @@ func main() {
 	if c.WorkerPoolSize == 0 {
 		c.WorkerPoolSize = 10
 	}
+	if c.RateLimitMaxPings == 0 {
+		c.RateLimitMaxPings = 30
+	}
+	if c.RateLimitWindowSecs == 0 {
+		c.RateLimitWindowSecs = 60
+	}
 
 	appLogger := logger.NewLogger(c.ServiceName, "INFO", c.AppEnv)
 
@@ -44,9 +52,10 @@ func main() {
 	}
 
 	sessionStore := session.NewSessionStore()
-	ingestionServer := server.NewIngestionServer(sessionStore, appLogger)
+	client := cache.NewRedisClient(c.RedisAddr)
+	rateLimiter := ratelimit.NewRateLimiter(client, c.RateLimitMaxPings, c.RateLimitWindowSecs)
+	ingestionServer := server.NewIngestionServer(sessionStore, appLogger, rateLimiter)
 
-	//newPublisher := publisher.NewNoopPublisher()
 	kafkaPublisher := publisher.NewKafkaPublisher(c.KafkaBrokers, "vehicle.telemetry", appLogger)
 	workerPool := worker.NewPool(c.WorkerPoolSize, ingestionServer.Pings(), appLogger, kafkaPublisher)
 	ctx, cancel := context.WithCancel(context.Background())
