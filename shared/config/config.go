@@ -19,6 +19,7 @@ type Config struct {
 	AIEndpoint     string   `mapstructure:"AI_ENDPOINT"`
 	JwtPrivateKey  string   `mapstructure:"JWT_PRIVATE_KEY"`
 	JwtPublicKey   string   `mapstructure:"JWT_PUBLIC_KEY"`
+	WorkerPoolSize int      `mapstructure:"WORKER_POOL_SIZE"`
 }
 
 func Load() (c Config, err error) {

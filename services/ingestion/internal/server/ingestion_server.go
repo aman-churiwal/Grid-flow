@@ -25,6 +25,10 @@ func NewIngestionServer(sessions *session.Store, logger *logger.Logger) *Ingesti
 	}
 }
 
+func (s *IngestionServer) Pings() <-chan *gen.VehiclePing {
+	return s.pings
+}
+
 func (s *IngestionServer) StreamTelemetry(stream gen.IngestionService_StreamTelemetryServer) error {
 	firstPing, err := stream.Recv()
 	if err != nil {

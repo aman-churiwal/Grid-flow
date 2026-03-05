@@ -10,8 +10,10 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/aman-churiwal/gridflow-ingestion/internal/publisher"
 	"github.com/aman-churiwal/gridflow-ingestion/internal/server"
 	"github.com/aman-churiwal/gridflow-ingestion/internal/session"
+	"github.com/aman-churiwal/gridflow-ingestion/internal/worker"
 	"github.com/aman-churiwal/gridflow-shared/config"
 	"github.com/aman-churiwal/gridflow-shared/logger"
 	"github.com/aman-churiwal/gridflow-shared/proto/gen"
@@ -28,6 +30,10 @@ func main() {
 		return
 	}
 
+	if c.WorkerPoolSize == 0 {
+		c.WorkerPoolSize = 10
+	}
+
 	appLogger := logger.NewLogger(c.ServiceName, "INFO", c.AppEnv)
 
 	// initialize grpc server
@@ -39,6 +45,11 @@ func main() {
 
 	sessionStore := session.NewSessionStore()
 	ingestionServer := server.NewIngestionServer(sessionStore, appLogger)
+
+	newPublisher := publisher.NewNoopPublisher()
+	workerPool := worker.NewPool(c.WorkerPoolSize, ingestionServer.Pings(), appLogger, newPublisher)
+	ctx, cancel := context.WithCancel(context.Background())
+	workerPool.Start(ctx)
 
 	grpcServer := grpc.NewServer()
 	gen.RegisterIngestionServiceServer(grpcServer, ingestionServer)
@@ -61,6 +72,7 @@ func main() {
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 	<-quit
 	appLogger.Info(context.Background()).Msg("Shutting down server...")
+	cancel()
 
 	stopped := make(chan struct{})
 	go func() {
@@ -75,4 +87,6 @@ func main() {
 		appLogger.Warn(context.Background()).Msg("Graceful shutdown timed out, forcing stop")
 		grpcServer.Stop()
 	}
+
+	workerPool.Wait()
 }
