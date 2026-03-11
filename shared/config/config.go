@@ -11,6 +11,7 @@ type Config struct {
 	AppEnv              string   `mapstructure:"APP_ENV"`
 	ServiceName         string   `mapstructure:"SERVICE_NAME"`
 	Port                int      `mapstructure:"PORT"`
+	HealthPort          int      `mapstructure:"HEALTH_PORT"`
 	KafkaBrokers        []string `mapstructure:"KAFKA_BROKERS"`
 	RedisAddr           string   `mapstructure:"REDIS_ADDR"`
 	PostgresDSN         string   `mapstructure:"POSTGRES_DSN"`
@@ -22,6 +23,8 @@ type Config struct {
 	WorkerPoolSize      int      `mapstructure:"WORKER_POOL_SIZE"`
 	RateLimitMaxPings   int64    `mapstructure:"RATE_LIMIT_MAX_PINGS"`
 	RateLimitWindowSecs int64    `mapstructure:"RATE_LIMIT_WINDOW_SECS"`
+	Topic               string   `mapstructure:"TOPIC"`
+	GroupID             string   `mapstructure:"GROUP_ID"`
 }
 
 func Load() (c Config, err error) {
