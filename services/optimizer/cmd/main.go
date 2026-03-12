@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
@@ -11,10 +10,11 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/aman-churiwal/gridflow-optimizer/internal/consumer"
+	"github.com/aman-churiwal/gridflow-optimizer/internal/optimizer"
 	"github.com/aman-churiwal/gridflow-shared/cache"
 	"github.com/aman-churiwal/gridflow-shared/config"
 	"github.com/aman-churiwal/gridflow-shared/logger"
-	"github.com/aman-churiwal/gridflow-shared/proto/gen"
 	"github.com/gin-gonic/gin"
 	"github.com/segmentio/kafka-go"
 )
@@ -43,20 +43,27 @@ func main() {
 		return
 	}
 
+	ctx, cancel := context.WithCancel(context.Background())
+
 	redisClient := cache.NewRedisClient(c.RedisAddr)
-	if err := redisClient.Ping(context.Background()).Err(); err != nil {
-		appLogger.Error(context.Background()).Err(err).Msg("unable to connect to Redis")
+	if err := redisClient.Ping(ctx).Err(); err != nil {
+		appLogger.Error(ctx).Err(err).Msg("unable to connect to Redis")
 		return
 	}
 
 	reader := kafka.NewReader(kafka.ReaderConfig{
-		Brokers:        c.KafkaBrokers,
-		Topic:          c.Topic,
-		GroupID:        c.GroupID,
-		MinBytes:       100,
-		MaxBytes:       10e6,
-		CommitInterval: time.Second,
+		Brokers:  c.KafkaBrokers,
+		Topic:    c.Topic,
+		GroupID:  c.GroupID,
+		MinBytes: 100,
+		MaxBytes: 10e6,
 	})
+	msgs := make(chan consumer.Message, 100)
+	consumerGroup := consumer.NewConsumerGroup(reader, msgs, appLogger)
+	newOptimizer := optimizer.NewOptimizer(msgs, appLogger)
+
+	consumerGroup.Start(ctx)
+	newOptimizer.Start(ctx)
 
 	router := gin.New()
 
@@ -74,43 +81,18 @@ func main() {
 
 	go func(logger *logger.Logger) {
 		if err := srv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
-			appLogger.Error(context.Background()).Err(err).Msg("Error listening to server")
+			appLogger.Error(ctx).Err(err).Msg("Error listening to server")
 		}
 	}(appLogger)
-
-	ctx, cancel := context.WithCancel(context.Background())
-	go func() {
-		for {
-			m, err := reader.ReadMessage(ctx)
-			if err != nil {
-				if errors.Is(err, context.Canceled) {
-					return
-				}
-
-				appLogger.Error(ctx).Err(err).Msg("error reading message")
-				continue
-			}
-
-			var ping gen.VehiclePing
-			if err := json.Unmarshal(m.Value, &ping); err != nil {
-				appLogger.Error(ctx).Err(err).Msg("error unmarshalling message")
-				continue
-			}
-			appLogger.Info(ctx).
-				Str("vehicle_id", ping.VehicleId).
-				Str("topic", m.Topic).
-				Msg("message received")
-		}
-	}()
 
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 	<-quit
-	appLogger.Info(context.Background()).Msg("Shutting down server...")
-	cancel()
+	appLogger.Info(ctx).Msg("Shutting down server...")
 
-	if err := reader.Close(); err != nil {
-		appLogger.Error(context.Background()).Err(err).Msg("Unable to close Kafka reader")
+	cancel()
+	if err := consumerGroup.Close(); err != nil {
+		appLogger.Error(ctx).Err(err).Msg("error closing consumerGroup")
 	}
 
 	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 5*time.Second)

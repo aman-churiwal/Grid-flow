@@ -3,6 +3,6 @@ go 1.25.0
 use (
 	./services/auth
 	./services/ingestion
+	./services/optimizer
 	./shared
-	services/optimizer
 )
