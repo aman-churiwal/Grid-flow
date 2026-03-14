@@ -68,7 +68,12 @@ func (c *Consumer) Start(ctx context.Context) {
 					close(done)
 				},
 			}
-			c.optimizerChannel <- newMessage
+			select {
+			case c.optimizerChannel <- newMessage:
+			case <-ctx.Done():
+				return
+			}
+
 			select {
 			case <-done:
 			case <-ctx.Done():

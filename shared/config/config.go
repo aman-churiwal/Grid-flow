@@ -25,6 +25,7 @@ type Config struct {
 	RateLimitWindowSecs int64    `mapstructure:"RATE_LIMIT_WINDOW_SECS"`
 	Topic               string   `mapstructure:"TOPIC"`
 	GroupID             string   `mapstructure:"GROUP_ID"`
+	GeoRadiusKm         int      `mapstructure:"GEO_RADIUS_KM"`
 }
 
 func Load() (c Config, err error) {
