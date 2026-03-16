@@ -1,4 +1,5 @@
 #generate-proto.sh
+# Run "bash scripts/generate-proto.sh" from root folder
 
 protoc \
   --proto_path=shared/proto \
