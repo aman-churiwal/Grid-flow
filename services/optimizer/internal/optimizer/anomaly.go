@@ -1,6 +1,9 @@
 package optimizer
 
-import "time"
+import (
+	"context"
+	"time"
+)
 
 type AnomalyEvent struct {
 	VehicleID   string
@@ -19,3 +22,8 @@ const (
 	AnomalyConnectionLost AnomalyType = "CONNECTION_LOST"
 	AnomalyRouteDeviation AnomalyType = "ROUTE_DEVIATION"
 )
+
+type IPublisher interface {
+	Publish(ctx context.Context, event AnomalyEvent) error
+	Close() error
+}

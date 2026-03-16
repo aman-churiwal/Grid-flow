@@ -13,6 +13,7 @@ import (
 	"github.com/aman-churiwal/gridflow-optimizer/internal/consumer"
 	"github.com/aman-churiwal/gridflow-optimizer/internal/lock"
 	"github.com/aman-churiwal/gridflow-optimizer/internal/optimizer"
+	"github.com/aman-churiwal/gridflow-optimizer/internal/publisher"
 	"github.com/aman-churiwal/gridflow-shared/cache"
 	"github.com/aman-churiwal/gridflow-shared/config"
 	"github.com/aman-churiwal/gridflow-shared/logger"
@@ -40,6 +41,7 @@ func main() {
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
 
 	redisClient := cache.NewRedisClient(c.RedisAddr)
 	if err := redisClient.Ping(ctx).Err(); err != nil {
@@ -57,7 +59,9 @@ func main() {
 	msgs := make(chan consumer.Message, 100)
 	consumerGroup := consumer.NewConsumerGroup(reader, msgs, appLogger)
 	geoStore := optimizer.NewGeoStore(redisClient, appLogger, c.GeoRadiusKm)
-	newOptimizer := optimizer.NewOptimizer(msgs, geoStore, appLogger)
+	anomalyPublisher := publisher.NewKafkaPublisher(c.KafkaBrokers, "anomaly.detected", appLogger)
+	detector := optimizer.NewDetector(anomalyPublisher, appLogger)
+	newOptimizer := optimizer.NewOptimizer(msgs, detector, geoStore, appLogger)
 
 	etcdClient, err := clientv3.New(clientv3.Config{
 		Endpoints:   c.EtcdEndpoints,
@@ -80,7 +84,7 @@ func main() {
 	srv := newHealthServer(c.HealthPort, c.ServiceName)
 	go func() {
 		if err := srv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
-			appLogger.Error(ctx).Err(err).Msg("Error listening to server")
+			appLogger.Error(context.Background()).Err(err).Msg("Error listening to server")
 		}
 	}()
 
@@ -89,7 +93,6 @@ func main() {
 	<-quit
 	appLogger.Info(context.Background()).Msg("Shutting down server...")
 
-	// Stopping consumer and optimizer
 	cancel()
 
 	// Releasing leadership
@@ -99,6 +102,9 @@ func main() {
 
 	// Draining kafka
 	_ = consumerGroup.Close()
+
+	// Flushing kafka writer
+	_ = anomalyPublisher.Close()
 
 	// Stopping health server
 	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 5*time.Second)

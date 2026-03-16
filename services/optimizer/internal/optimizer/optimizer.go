@@ -9,13 +9,15 @@ import (
 
 type Optimizer struct {
 	msgs     <-chan consumer.Message
+	detector *Detector
 	geoStore *GeoStore
 	logger   *logger.Logger
 }
 
-func NewOptimizer(msgs <-chan consumer.Message, geoStore *GeoStore, logger *logger.Logger) *Optimizer {
+func NewOptimizer(msgs <-chan consumer.Message, detector *Detector, geoStore *GeoStore, logger *logger.Logger) *Optimizer {
 	return &Optimizer{
 		msgs:     msgs,
+		detector: detector,
 		geoStore: geoStore,
 		logger:   logger,
 	}
@@ -23,6 +25,7 @@ func NewOptimizer(msgs <-chan consumer.Message, geoStore *GeoStore, logger *logg
 
 func (o *Optimizer) Start(ctx context.Context) {
 	o.geoStore.StartPruner(ctx)
+	o.detector.StartSilenceDetector(ctx)
 	go func() {
 		for {
 			select {
@@ -39,6 +42,11 @@ func (o *Optimizer) Start(ctx context.Context) {
 					o.logger.Error(ctx).Err(err).
 						Str("vehicle_id", msg.Ping.VehicleId).
 						Msg("failed to upsert vehicle")
+				}
+				if err := o.detector.Check(ctx, &msg.Ping); err != nil {
+					o.logger.Error(ctx).Err(err).
+						Str("vehicle_id", msg.Ping.VehicleId).
+						Msg("anomaly check failed")
 				}
 				nearby := o.geoStore.FindNearby(ctx, msg.Ping.VehicleId, msg.Ping.Lng, msg.Ping.Lat)
 				for _, v := range nearby {

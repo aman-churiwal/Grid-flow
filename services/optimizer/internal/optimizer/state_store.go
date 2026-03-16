@@ -8,9 +8,10 @@ import (
 )
 
 type VehicleState struct {
-	LastPings []*gen.VehiclePing // ring buffer of last N pings (N=3 for now)
-	LastSeen  time.Time
-	LastRoute [2]*gen.VehiclePing // last two pings used as a route proxy
+	LastPings           []*gen.VehiclePing // ring buffer of last N pings (N=3 for now)
+	LastSeen            time.Time
+	LastRoute           [2]*gen.VehiclePing // last two pings used as a route proxy
+	ConnectionLostFired bool
 }
 
 type StateStore struct {
