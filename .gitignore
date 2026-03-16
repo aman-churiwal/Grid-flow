@@ -1,5 +1,6 @@
 services/auth/.env
 services/ingestion/.env
+services/optimizer/.env
 
 .idea
 
